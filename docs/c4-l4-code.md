@@ -475,6 +475,33 @@ classDiagram
 El FE no implementa `getById`, `update` completo ni ningun endpoint de Projects
 (aunque el backend los expone). Solo consume el subconjunto necesario para el tablero Kanban.
 
+El modulo Auth agrega dos funciones al cliente:
+
+- `login(email, password)` — POST /auth/login, retorna `AuthResponse`
+- `register(username, email, password)` — POST /auth/register, retorna `AuthResponse`
+
+El interceptor de axios adjunta el token desde `localStorage` como `Authorization: Bearer <token>`
+en cada request. Los endpoints de Auth no lo necesitan (son publicos).
+
+```mermaid
+classDiagram
+    class ApiClient {
+        <<axios instance>>
+        +baseURL: http://localhost:8080/api
+        +Content-Type: application/json
+        +interceptor: adjunta Bearer token si existe en localStorage
+    }
+
+    class AuthApi {
+        <<exported functions>>
+        +login(email, password) Promise~AuthResponse~
+        +register(username, email, password) Promise~AuthResponse~
+    }
+
+    AuthApi --> ApiClient : POST /auth/login
+    AuthApi --> ApiClient : POST /auth/register
+```
+
 ---
 
 ## Frontend — Componentes React
@@ -531,25 +558,170 @@ classDiagram
     CreateTaskForm ..> TasksApi : calls createTask
 ```
 
-`LoginForm` y `RegisterForm` mencionados en la mision no existen en el codigo fuente del FE.
+`LoginForm` recibe `onAuthenticated(session: AuthSession)` y `onGoToRegister()`.
+`RegisterForm` recibe `onAuthenticated(session: AuthSession)` y `onGoToLogin()`.
+Ambos componentes persisten la sesion en `localStorage` antes de llamar al callback.
+
+```mermaid
+classDiagram
+    class LoginForm {
+        <<React.FC>>
+        -string email
+        -string password
+        -boolean submitting
+        -string|null error
+        +onAuthenticated(AuthSession) void
+        +onGoToRegister() void
+        +handleSubmit(FormEvent) void
+    }
+
+    class RegisterForm {
+        <<React.FC>>
+        -string username
+        -string email
+        -string password
+        -boolean submitting
+        -string|null error
+        -FieldErrors fieldErrors
+        +onAuthenticated(AuthSession) void
+        +onGoToLogin() void
+        +validate() boolean
+        +handleSubmit(FormEvent) void
+    }
+
+    LoginForm ..> AuthApi : calls login()
+    RegisterForm ..> AuthApi : calls register()
+    LoginForm ..> AuthSession : produces
+    RegisterForm ..> AuthSession : produces
+```
 
 ---
 
-## Discrepancias entre la mision y el codigo real
+## Seguridad — Backend
 
-Las siguientes clases/modulos estaban listados en la mision pero **no existen** en el codigo:
+`SecurityConfig` configura Spring Security en modo stateless (sin sesion HTTP).
+CSRF deshabilitado. `/api/auth/**` es publico; el resto de rutas tambien es
+`permitAll()` en la configuracion actual (la validacion real del token ocurre
+via el interceptor del FE, no en un filtro de Spring).
 
-| Clase/modulo esperado | Ubicacion buscada | Veredicto |
+`JwtUtil` firma y valida tokens con HMAC-SHA usando la clave de la propiedad
+`jwt.secret`. Expiracion configurable via `jwt.expiration-ms` (default 86400000 ms = 24 h).
+
+```mermaid
+classDiagram
+    class SecurityConfig {
+        <<@Configuration @EnableWebSecurity>>
+        +passwordEncoder() PasswordEncoder
+        +securityFilterChain(HttpSecurity) SecurityFilterChain
+    }
+
+    class JwtUtil {
+        <<@Component>>
+        -SecretKey secretKey
+        -long expirationMs
+        +generateToken(String email) String
+        +extractEmail(String token) String
+        +isTokenValid(String token) boolean
+        -parseClaims(String token) Claims
+    }
+
+    class AuthService {
+        <<interface>>
+        +register(RegisterRequest) AuthResponse
+        +login(LoginRequest) AuthResponse
+    }
+
+    class AuthServiceImpl {
+        <<@Service @Transactional>>
+        -UserRepository userRepository
+        -PasswordEncoder passwordEncoder
+        -JwtUtil jwtUtil
+        +register(RegisterRequest) AuthResponse
+        +login(LoginRequest) AuthResponse
+    }
+
+    class AuthController {
+        <<@RestController /api/auth>>
+        -AuthService authService
+        +register(RegisterRequest) ResponseEntity~AuthResponse~
+        +login(LoginRequest) ResponseEntity~AuthResponse~
+    }
+
+    AuthServiceImpl ..|> AuthService : implements
+    AuthController --> AuthService : delegates
+    AuthServiceImpl --> JwtUtil : generateToken()
+    AuthServiceImpl --> UserRepository : existsByUsername / existsByEmail / findByEmail / save
+    SecurityConfig --> JwtUtil : no dependency (JwtUtil es @Component independiente)
+```
+
+Nota: `SecurityConfig` usa `BCryptPasswordEncoder`. `AuthServiceImpl` recibe el
+bean `PasswordEncoder` por constructor; no hay acoplamiento directo entre `SecurityConfig`
+y `AuthServiceImpl` mas alla del bean compartido del contexto de Spring.
+
+---
+
+## Auth DTOs
+
+`LoginRequest` y `RegisterRequest` llevan anotaciones Bean Validation (`@NotBlank`, `@Email`, `@Size`).
+`AuthResponse` es un POJO de salida con campo `type` hardcodeado a `"Bearer"`.
+
+```mermaid
+classDiagram
+    class LoginRequest {
+        +String email
+        +String password
+    }
+
+    class RegisterRequest {
+        +String username
+        +String email
+        +String password
+    }
+
+    class AuthResponse {
+        +String token
+        +String type
+        +String username
+        +String email
+    }
+```
+
+Restricciones de validacion:
+
+| Campo | Clase | Restriccion |
 |---|---|---|
-| `AuthController` | `controller/` | No existe |
-| `AuthServiceImpl` | `service/` | No existe |
-| `JwtUtil` | cualquier paquete | No existe |
-| `SecurityConfig` | `config/` | No existe. Solo existe `CorsConfig` |
-| `AuthResponse` DTO | `dto/` | No existe |
-| `LoginRequest` DTO | `dto/` | No existe |
-| `RegisterRequest` DTO | `dto/` | No existe |
-| `LoginForm` (FE) | `src/components/` | No existe |
-| `RegisterForm` (FE) | `src/components/` | No existe |
+| `email` | `LoginRequest` | `@NotBlank`, `@Email` |
+| `password` | `LoginRequest` | `@NotBlank` |
+| `username` | `RegisterRequest` | `@NotBlank`, `@Size(min=3, max=100)` |
+| `email` | `RegisterRequest` | `@NotBlank`, `@Email` |
+| `password` | `RegisterRequest` | `@NotBlank`, `@Size(min=6, max=100)` |
 
-El sistema **no implementa autenticacion** en el codigo actual. Los endpoints `/api/auth/*`
-listados en la mision no tienen handler. Este documento refleja lo que esta en el codigo.
+`AuthResponse.type` siempre vale `"Bearer"` (valor por defecto en el constructor; no se
+pasa como parametro).
+
+---
+
+## Frontend — Tipos Auth (`types.ts`)
+
+```mermaid
+classDiagram
+    class AuthResponse {
+        <<interface>>
+        +string token
+        +string type
+        +string username
+        +string email
+    }
+
+    class AuthSession {
+        <<interface>>
+        +string token
+        +string username
+        +string email
+    }
+
+    AuthResponse --> AuthSession : se mapea al hacer login/register
+```
+
+`AuthSession` omite `type` respecto a `AuthResponse`: el FE solo necesita el token
+y los datos de identidad para mostrar en la UI.

@@ -5,8 +5,9 @@ info:
     API REST del backend de MiniJira. Implementada con Spring Boot 3 / Java 21.
     Generada a partir del codigo fuente real (branch `development`).
 
-    **Autenticacion**: el sistema actual no implementa autenticacion. Todos los
-    endpoints son publicos. No existen rutas `/api/auth/*` en el codigo.
+    **Autenticacion**: JWT Bearer. Obtener token via `POST /api/auth/register` o
+    `POST /api/auth/login`. Incluir en cada request protegida como:
+    `Authorization: Bearer <token>`. Los endpoints `/api/auth/*` son publicos.
 
     **CORS**: permitido desde `http://localhost:5173` y `http://localhost:3000`
     (configurable via env var `cors.allowed-origins`).
@@ -19,6 +20,8 @@ servers:
     description: Desarrollo local
 
 tags:
+  - name: Auth
+    description: Registro e inicio de sesion. Endpoints publicos, no requieren token.
   - name: Tasks
     description: Gestion de tareas del tablero Kanban
   - name: Users
@@ -28,6 +31,82 @@ tags:
 
 paths:
 
+  # ─── AUTH ─────────────────────────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar nuevo usuario
+      operationId: register
+      description: |
+        Crea un nuevo usuario. Devuelve un JWT listo para usar.
+        Falla con 409 si el `username` o el `email` ya existen en el sistema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              username: "jdoe"
+              email: "jdoe@example.com"
+              password: "secreto123"
+      responses:
+        '201':
+          description: Usuario registrado. Devuelve token JWT.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                token: "eyJhbGciOiJIUzI1NiJ9..."
+                type: "Bearer"
+                username: "jdoe"
+                email: "jdoe@example.com"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesion
+      operationId: login
+      description: |
+        Autentica con email y password. Devuelve un JWT Bearer.
+        Devuelve 409 con mensaje "Credenciales invalidas" si el email no existe
+        o la password no coincide (respuesta identica para ambos casos, por seguridad).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "jdoe@example.com"
+              password: "secreto123"
+      responses:
+        '200':
+          description: Login exitoso. Devuelve token JWT.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                token: "eyJhbGciOiJIUzI1NiJ9..."
+                type: "Bearer"
+                username: "jdoe"
+                email: "jdoe@example.com"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # ─── TASKS ────────────────────────────────────────────────────────────────
 
   /tasks:
@@ -35,6 +114,8 @@ paths:
       tags: [Tasks]
       summary: Listar todas las tareas
       operationId: getAllTasks
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Lista de tareas
@@ -51,6 +132,8 @@ paths:
       tags: [Tasks]
       summary: Crear una tarea
       operationId: createTask
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -86,6 +169,8 @@ paths:
       tags: [Tasks]
       summary: Obtener tarea por ID
       operationId: getTaskById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -104,6 +189,8 @@ paths:
       tags: [Tasks]
       summary: Actualizar tarea completa
       operationId: updateTask
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -130,6 +217,8 @@ paths:
       tags: [Tasks]
       summary: Eliminar tarea
       operationId: deleteTask
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -145,6 +234,8 @@ paths:
       tags: [Tasks]
       summary: Actualizar solo el estado de una tarea
       operationId: updateTaskStatus
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -176,6 +267,8 @@ paths:
       tags: [Users]
       summary: Listar todos los usuarios
       operationId: getAllUsers
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Lista de usuarios
@@ -192,9 +285,10 @@ paths:
       tags: [Users]
       summary: Crear un usuario
       operationId: createUser
+      security:
+        - bearerAuth: []
       description: |
         Valida unicidad de `username` y `email`. Devuelve 409 si ya existen.
-        El campo `password` no existe en este sistema (no hay autenticacion implementada).
       requestBody:
         required: true
         content:
@@ -223,6 +317,8 @@ paths:
       tags: [Users]
       summary: Obtener usuario por ID
       operationId: getUserById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -241,6 +337,8 @@ paths:
       tags: [Users]
       summary: Actualizar usuario
       operationId: updateUser
+      security:
+        - bearerAuth: []
       description: Valida unicidad de `username` y `email` contra otros usuarios.
       parameters:
         - $ref: '#/components/parameters/IdPath'
@@ -270,6 +368,8 @@ paths:
       tags: [Users]
       summary: Eliminar usuario
       operationId: deleteUser
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -287,6 +387,8 @@ paths:
       tags: [Projects]
       summary: Listar todos los proyectos
       operationId: getAllProjects
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: Lista de proyectos
@@ -303,6 +405,8 @@ paths:
       tags: [Projects]
       summary: Crear un proyecto
       operationId: createProject
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -329,6 +433,8 @@ paths:
       tags: [Projects]
       summary: Obtener proyecto por ID
       operationId: getProjectById
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -347,6 +453,8 @@ paths:
       tags: [Projects]
       summary: Actualizar proyecto
       operationId: updateProject
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -373,6 +481,8 @@ paths:
       tags: [Projects]
       summary: Eliminar proyecto
       operationId: deleteProject
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -397,7 +507,73 @@ components:
         format: int64
         example: 1
 
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT obtenido de `POST /api/auth/login` o `POST /api/auth/register`.
+        Incluir como: `Authorization: Bearer <token>`.
+
   schemas:
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email del usuario registrado
+          example: "jdoe@example.com"
+        password:
+          type: string
+          description: Password del usuario (minimo 6 caracteres al registrarse)
+          example: "secreto123"
+
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: Nombre de usuario unico en el sistema
+          example: "jdoe"
+        email:
+          type: string
+          format: email
+          description: Email unico en el sistema
+          example: "jdoe@example.com"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Password (minimo 6 caracteres)
+          example: "secreto123"
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT firmado con HMAC-SHA. Usar como Bearer token.
+          example: "eyJhbGciOiJIUzI1NiJ9..."
+        type:
+          type: string
+          description: Siempre "Bearer"
+          example: "Bearer"
+        username:
+          type: string
+          description: Nombre de usuario del account autenticado
+          example: "jdoe"
+        email:
+          type: string
+          format: email
+          description: Email del account autenticado
+          example: "jdoe@example.com"
 
     TaskStatus:
       type: string
