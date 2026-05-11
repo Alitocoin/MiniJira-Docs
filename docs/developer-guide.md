@@ -138,6 +138,10 @@ Todas las respuestas de error tienen la misma estructura (`ErrorResponse`): `sta
 - El resto requiere `Authorization: Bearer <token>` en el header.
 - `JwtUtil` genera y valida tokens HMAC-SHA con la clave `JWT_SECRET`.
 
+**Swagger UI (solo desarrollo)**
+
+Con el backend corriendo, la documentacion interactiva esta disponible en `http://localhost:8080/swagger-ui.html`. No requiere Postman ni ninguna herramienta externa. Para probar endpoints protegidos: hacer login via `POST /api/auth/login`, copiar el `token` de la respuesta, y pegarlo en el dialogo **Authorize** (candado en la esquina superior derecha). A partir de ahi todos los requests del navegador incluyen el header JWT automaticamente.
+
 **Naming**
 
 | Elemento | Convencion |

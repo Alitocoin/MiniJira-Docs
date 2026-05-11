@@ -6,6 +6,26 @@ Todos los endpoints aceptan y devuelven `Content-Type: application/json`.
 
 ---
 
+## Swagger UI
+
+La API expone documentación interactiva via Springdoc OpenAPI 2.5.0.
+
+| URL | Descripción |
+|-----|-------------|
+| `http://localhost:8080/swagger-ui.html` | UI interactiva — explorar y probar endpoints |
+| `http://localhost:8080/v3/api-docs` | Spec OpenAPI 3.0 en JSON |
+| `http://localhost:8080/v3/api-docs.yaml` | Spec OpenAPI 3.0 en YAML |
+
+### Autenticarse en Swagger UI
+
+1. Llamar `POST /api/auth/login` con `{ "email": "...", "password": "..." }`
+2. Copiar el valor del campo `token` en la respuesta
+3. Click en **Authorize** (ícono de candado en la parte superior derecha)
+4. Ingresar el token y click en **Authorize**
+5. Todos los requests subsiguientes incluirán el header `Authorization: Bearer <token>`
+
+---
+
 ## Tareas
 
 ### GET /api/tasks

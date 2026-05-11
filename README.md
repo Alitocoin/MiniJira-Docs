@@ -119,6 +119,7 @@ La SPA queda disponible en `http://localhost:5173` y apunta automáticamente al 
 |---|---|
 | Frontend (Vite dev) | http://localhost:5173 |
 | Backend API | http://localhost:8080/api |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
 | H2 Console (solo tests) | http://localhost:8080/h2-console |
 
 ---
