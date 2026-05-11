@@ -66,7 +66,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 ## 5. Métricas
 
-Ver [`docs/test-02-metrics.md`](./test-02-metrics.md)
+Ver [./metrics.md](./metrics.md)
 
 ---
 

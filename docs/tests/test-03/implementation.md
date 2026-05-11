@@ -106,7 +106,7 @@ Cliente → GET /api/tasks (sin token)
 
 ## 6. Métricas
 
-Ver [`docs/test-03-metrics.md`](./test-03-metrics.md)
+Ver [./metrics.md](./metrics.md)
 
 ---
 
@@ -117,5 +117,3 @@ Ver [`docs/test-03-metrics.md`](./test-03-metrics.md)
 **BCrypt para passwords**: algoritmo de hashing adaptativo. El factor de costo por defecto de Spring Security (`10`) provee resistencia adecuada a ataques de fuerza bruta en el contexto de una app demo.
 
 **Interceptor axios**: el token JWT se almacena en `localStorage` y se adjunta automáticamente a cada request via interceptor, evitando pasar el token manualmente en cada llamada a la API.
-
-**SecurityConfig stateless**: Spring Security configurado con `SessionCreationPolicy.STATELESS`. No se crean cookies de sesión, lo que es consistente con el enfoque API REST + SPA.

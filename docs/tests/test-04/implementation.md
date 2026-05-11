@@ -143,7 +143,7 @@ export default defineConfig({
 
 ## 6. Métricas
 
-Ver [`docs/test-04-metrics.md`](./test-04-metrics.md)
+Ver [./metrics.md](./metrics.md)
 
 ---
 
